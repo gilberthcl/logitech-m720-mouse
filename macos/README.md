@@ -126,6 +126,10 @@ macOS ties that grant to the exact binary. `install.sh` therefore rebuilds
 `m720d` only when `src/m720d.swift` has actually changed, so routine updates
 keep your grant. Pass `--force` to rebuild anyway.
 
+The binary is ad-hoc signed at install time. Without a signature TCC cannot
+attribute the grant at all — the entry shows as enabled while the tap keeps
+failing — so this is required, not cosmetic.
+
 When it does rebuild, the grant goes stale even though the entry still shows
 as enabled. Toggling it off and on sometimes suffices; if not, remove the
 entry with the minus button and add it again. The daemon re-checks every

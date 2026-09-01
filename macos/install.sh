@@ -34,6 +34,17 @@ else
     swiftc -O -o "$BIN/m720d.new" "$SRC/src/m720d.swift" || {
         echo; echo "compile failed — nothing was installed or changed." >&2; exit 1; }
     mv "$BIN/m720d.new" "$BIN/m720d"
+
+    # Ad-hoc sign it. TCC cannot reliably attribute an Accessibility grant to
+    # an unsigned executable: the entry appears in the list and enables, but
+    # the authorisation never matches the running process, so the event tap
+    # keeps failing. A signature — even ad-hoc — gives it a stable identity.
+    if codesign --force --sign - --identifier local.mouse.m720d "$BIN/m720d" 2>/dev/null; then
+        echo "signed m720d (ad-hoc)"
+    else
+        echo "WARNING: could not codesign m720d; the Accessibility grant may not stick" >&2
+    fi
+
     echo "$SRC_HASH" > "$STAMP"
     echo "NOTE: m720d was rebuilt, so its Accessibility grant may need re-adding."
 fi
