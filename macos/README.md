@@ -122,9 +122,14 @@ it. Then grant Accessibility permission — **System Settings > Privacy &
 Security > Accessibility**, add `~/.local/bin/m720d` (Cmd-Shift-G to type the
 path) — and run `mouse restart`.
 
-macOS ties that grant to the exact binary, and `install.sh` recompiles it, so
-**install before you grant**. After a later update the tap may stop working
-until you remove the Accessibility entry and add it back.
+macOS ties that grant to the exact binary. `install.sh` therefore rebuilds
+`m720d` only when `src/m720d.swift` has actually changed, so routine updates
+keep your grant. Pass `--force` to rebuild anyway.
+
+When it does rebuild, the grant goes stale even though the entry still shows
+as enabled. Toggling it off and on sometimes suffices; if not, remove the
+entry with the minus button and add it again. The daemon re-checks every
+3 seconds, so it starts working on its own — no restart needed.
 
 Everything lands under your home directory:
 

@@ -20,10 +20,23 @@ command -v python3 >/dev/null || { echo "python3 not found. Run: xcode-select --
 
 mkdir -p "$BIN" "$LIB" "$CFG_DIR" "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
 
-echo "compiling m720d…"
-swiftc -O -o "$BIN/m720d.new" "$SRC/src/m720d.swift" || {
-    echo; echo "compile failed — nothing was installed or changed." >&2; exit 1; }
-mv "$BIN/m720d.new" "$BIN/m720d"
+# Rebuild only when the daemon source actually changed. macOS keys the
+# Accessibility grant to the binary's hash, so an unnecessary recompile
+# silently revokes permission and the user has to re-add it by hand.
+SRC_HASH=$(shasum -a 256 "$SRC/src/m720d.swift" | awk '{print $1}')
+STAMP="$LIB/.m720d.srchash"
+
+if [[ ${1-} != "--force" && -x "$BIN/m720d" && -f $STAMP \
+      && $(cat "$STAMP" 2>/dev/null) == "$SRC_HASH" ]]; then
+    echo "m720d is already up to date — not rebuilding (keeps your Accessibility grant)"
+else
+    echo "compiling m720d…"
+    swiftc -O -o "$BIN/m720d.new" "$SRC/src/m720d.swift" || {
+        echo; echo "compile failed — nothing was installed or changed." >&2; exit 1; }
+    mv "$BIN/m720d.new" "$BIN/m720d"
+    echo "$SRC_HASH" > "$STAMP"
+    echo "NOTE: m720d was rebuilt, so its Accessibility grant may need re-adding."
+fi
 
 install -m 0755 "$SRC/bin/mouse" "$BIN/mouse"
 
