@@ -24,15 +24,17 @@ import CoreGraphics
 // every field with decodeIfPresent so old and new configs both load.
 
 struct Action: Codable {
-    var type: String = "default"     // default | none | keystroke
+    var type: String = "default"     // default | none | keystroke | run
     var keys: [String]?              // e.g. ["cmd","c"]
+    var command: String?             // e.g. "open -a 'Mission Control'"
 
     init() {}
-    enum CodingKeys: String, CodingKey { case type, keys }
+    enum CodingKeys: String, CodingKey { case type, keys, command }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         type = try c.decodeIfPresent(String.self, forKey: .type) ?? "default"
         keys = try c.decodeIfPresent([String].self, forKey: .keys)
+        command = try c.decodeIfPresent(String.self, forKey: .command)
     }
 }
 
@@ -89,6 +91,7 @@ let CONFIG_PATH = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent(".config/m720-config/config.json")
 
 var config = Config()
+var configWatcher: DispatchSourceFileSystemObject?
 
 func loadConfig() {
     guard let data = try? Data(contentsOf: CONFIG_PATH) else {
@@ -104,6 +107,25 @@ func loadConfig() {
         log("CONFIG ERROR — nothing will be remapped: \(error)")
         log("CONFIG ERROR — check \(CONFIG_PATH.path)")
     }
+}
+
+/// Reload whenever config.json changes on disk. SIGHUP proved unreliable in
+/// practice, and this needs no signal, no wrapper cooperation, and no restart.
+func watchConfig() {
+    configWatcher?.cancel()
+    let fd = Darwin.open(CONFIG_PATH.path, O_EVTONLY)
+    guard fd >= 0 else { return }
+    let src = DispatchSource.makeFileSystemObjectSource(
+        fileDescriptor: fd, eventMask: [.write, .extend, .delete, .rename], queue: .main)
+    src.setEventHandler {
+        loadConfig()
+        // An editor that saves atomically replaces the inode we were watching,
+        // so re-arm on the new file rather than watching a deleted one.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { watchConfig() }
+    }
+    src.setCancelHandler { close(fd) }
+    src.resume()
+    configWatcher = src
 }
 
 func log(_ s: String) {
@@ -208,6 +230,25 @@ func handleControl(_ name: String) -> Bool {
         let delay = Double(max(0, config.postDelayMs)) / 1000.0
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { postKeystroke(keys) }
         return true
+    case "run":
+        // Some things cannot be reached by synthesising a keystroke at all.
+        // Mission Control is the example: the physical F3 sends a special HID
+        // usage, not virtual keycode 99, and Ctrl+Up is swallowed by
+        // terminals. Running a command sidesteps focus and shortcut config
+        // entirely.
+        guard let cmd = action.command, !cmd.isEmpty else {
+            if config.debug { log("  \(name): run with no command — passing through") }
+            return false
+        }
+        if config.debug { log("  \(name): running `\(cmd)` — swallowed") }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/sh")
+            proc.arguments = ["-c", cmd]
+            do { try proc.run() } catch { log("  \(name): command failed: \(error)") }
+        }
+        return true
+
     default:
         if config.debug { log("  \(name): default — passing through untouched") }
         return false
@@ -295,7 +336,8 @@ let mask: CGEventMask =
     (1 << CGEventType.keyDown.rawValue)        |
     (1 << CGEventType.keyUp.rawValue)
 
-log("started (config \(CONFIG_PATH.path))")
+watchConfig()
+log("started (config \(CONFIG_PATH.path), watching for changes)")
 
 // Creating the tap fails until Accessibility permission is granted. Do NOT
 // exit in that case: launchd has KeepAlive set, so exiting would respawn us

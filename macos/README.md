@@ -179,7 +179,24 @@ The LaunchAgent is labelled `local.mouse`, so `launchctl` lists it as `mouse`.
 }
 ```
 
-`type` is `default` (pass through untouched), `none` (disable), or `keystroke`.
+`type` is one of:
+
+| type | effect |
+|---|---|
+| `default` | pass the control through untouched |
+| `none` | swallow it, do nothing |
+| `keystroke` | send a chord, e.g. `"keys": ["cmd","c"]` |
+| `run` | run a shell command, e.g. `"command": "open -a 'Mission Control'"` |
+
+`run` exists because some things cannot be reached by synthesising a keystroke.
+Mission Control is the case in point: the physical F3 key sends a special HID
+usage rather than virtual keycode 99 (posting keycode 99 just opens Find in a
+browser), and `Ctrl+Up` gets swallowed by terminals before the window server
+sees it. Running `open -a 'Mission Control'` sidesteps focus and shortcut
+configuration entirely. Commands run as you, via `/bin/sh -c`, so treat
+config.json as executable content.
+
+Config changes are picked up automatically — the daemon watches the file.
 Modifier names: `cmd`, `opt`, `ctrl`, `shift`, `fn`. Scroll speed is handled in
 the daemon here — no imwheel equivalent is needed.
 
