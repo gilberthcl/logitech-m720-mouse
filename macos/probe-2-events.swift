@@ -16,9 +16,26 @@
 // That is a permission toggle, not an install; you can switch it back off.
 
 import Foundation
+import Dispatch
 import CoreGraphics
 
 var seen = Set<String>()
+
+// Naming the common codes matters: "ctrl+keycode 126" is unreadable, but
+// "Ctrl+Up (Mission Control)" is obviously the gesture button.
+let KEYNAME: [Int64: String] = [
+    0:"A", 1:"S", 2:"D", 3:"F", 4:"H", 5:"G", 6:"Z", 7:"X", 8:"C", 9:"V",
+    11:"B", 12:"Q", 13:"W", 14:"E", 15:"R", 16:"Y", 17:"T", 31:"O", 32:"U",
+    34:"I", 35:"P", 37:"L", 38:"J", 40:"K", 45:"N", 46:"M",
+    36:"Return", 48:"Tab", 49:"Space", 51:"Delete", 53:"Escape",
+    115:"Home", 116:"PageUp", 119:"End", 121:"PageDown",
+    123:"Left", 124:"Right", 125:"Down", 126:"Up",
+]
+let WELLKNOWN: [String: String] = [
+    "ctrl+Up": "Mission Control", "ctrl+Down": "App Expose",
+    "ctrl+Left": "Previous Desktop", "ctrl+Right": "Next Desktop",
+    "cmd+C": "Copy", "cmd+V": "Paste",
+]
 
 func note(_ what: String) {
     if seen.insert(what).inserted { print("  NEW: \(what)") }
@@ -87,8 +104,10 @@ func handler(proxy: CGEventTapProxy, type: CGEventType,
         if f.contains(.maskControl)   { mods.append("ctrl") }
         if f.contains(.maskShift)     { mods.append("shift") }
         let m = mods.isEmpty ? "" : mods.joined(separator: "+") + "+"
-        print("KEY     \(m)keycode \(code)   <-- a keystroke, not a raw button")
-        note("keystroke \(m)keycode \(code) — something is already remapping this")
+        let named = m + (KEYNAME[code] ?? "keycode \(code)")
+        let what = WELLKNOWN[named].map { " = \($0)" } ?? ""
+        print("KEY     \(named)\(what)   <-- arrives as a keystroke, not a raw button")
+        note("keystroke \(named)\(what) — reaches macOS, remappable with a caveat")
 
     default:
         break
@@ -148,15 +167,30 @@ Press slowly, one at a time, pausing between each:
   KEY       = already remapped by other software, so quit that and re-run
   nothing   = invisible to macOS, needs a driver
 
-Ctrl-C when done.
+Ctrl-C when done (it now exits cleanly), or it stops itself after 5 minutes.
 """)
 
-signal(SIGINT) { _ in
-    print("\n\n--- what produced events ---")
+func summarise(_ why: String) -> Never {
+    print("\n\n--- what produced events (\(why)) ---")
     if seen.isEmpty { print("  (nothing at all)") }
     for s in seen.sorted() { print("  \(s)") }
     print("\nAnything missing is not reachable without a driver.")
     exit(0)
+}
+
+for sig in [SIGINT, SIGTERM] { signal(sig, SIG_IGN) }
+var signalSources: [DispatchSourceSignal] = []   // retained on purpose
+for (sig, name) in [(SIGINT, "Ctrl-C"), (SIGTERM, "terminated")] {
+    let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
+    src.setEventHandler { summarise(name) }
+    src.resume()
+    signalSources.append(src)
+}
+
+// Backstop: never leave the user stuck in a process they cannot exit.
+let LIMIT = 300.0
+DispatchQueue.main.asyncAfter(deadline: .now() + LIMIT) {
+    summarise("\(Int(LIMIT))s time limit")
 }
 
 CFRunLoopRun()
