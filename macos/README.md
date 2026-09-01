@@ -206,3 +206,33 @@ the daemon here — no imwheel equivalent is needed.
   writes `logid.cfg`. Wiring it to this JSON config is the next step.
 - **Compiled and tested on a Mac.** The daemon was written without a macOS
   machine to build on. Expect the first `install.sh` to surface compile errors.
+
+## Space switching does not work, and cannot
+
+`Ctrl+←/→` is the macOS shortcut for moving between spaces, and the daemon
+sends it correctly — a terminal receiving it prints `;5D`/`;5C`, which is the
+escape sequence for exactly that chord. Applications act on it. The
+WindowServer does not.
+
+Space switching is driven from real hardware events; synthesised ones are
+ignored for that purpose no matter how they are posted. This is why other
+userland remappers reach for private APIs or a driver to do it. Nothing in
+this tool's design can get around it, and no config change helps.
+
+Mission Control via the `run` action is the practical substitute: it opens
+reliably from any app, and you pick the space from there.
+
+The same caveat applies to anything else the WindowServer handles itself
+rather than delivering to the focused application.
+
+## Working layout
+
+Verified on an M720 over Bluetooth LE, macOS with Jamf management:
+
+| Control | Action | How |
+|---|---|---|
+| Wheel click | Mission Control | `run` — keystrokes cannot trigger it |
+| Back | Paste | `cmd+v` |
+| Forward | Copy | `cmd+c` |
+| Tilt left / right | Back / forward | `cmd+[` / `cmd+]`, works in browsers and Finder |
+| Thumb (gesture) | Enter | intercepts the mouse's own `Ctrl+Up` by keyboardType |

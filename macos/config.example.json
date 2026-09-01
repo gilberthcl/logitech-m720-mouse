@@ -3,8 +3,8 @@
     "button2":   { "type": "run", "command": "open -a 'Mission Control'" },
     "button3":   { "type": "keystroke", "keys": ["cmd", "v"] },
     "button4":   { "type": "keystroke", "keys": ["cmd", "c"] },
-    "tiltLeft":  { "type": "keystroke", "keys": ["ctrl", "left"] },
-    "tiltRight": { "type": "keystroke", "keys": ["ctrl", "right"] },
+    "tiltLeft":  { "type": "keystroke", "keys": ["cmd", "leftbracket"] },
+    "tiltRight": { "type": "keystroke", "keys": ["cmd", "rightbracket"] },
     "gesture":   { "type": "keystroke", "keys": ["return"] }
   },
   "scroll": { "enabled": false, "multiplier": 3, "invert": false },
