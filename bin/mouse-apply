@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# mouse-apply — install a candidate logid.cfg, restart the service, verify it
+# came back up, and roll back automatically if it did not.
+#
+# Runs as root (invoked via pkexec or sudo by the m720-config UI).
+# Usage: mouse-apply <candidate-file>
+#        mouse-apply --revert [backup-file]
+#        mouse-apply --list-backups
+
+set -euo pipefail
+
+CFG=/etc/logid.cfg
+SERVICE=mouse.service
+BACKUP_DIR=/var/backups/m720-config
+KEEP=25
+SETTLE=2          # seconds to let logid parse the config before we judge it
+
+die() { echo "mouse-apply: $*" >&2; exit 1; }
+
+[[ $EUID -eq 0 ]] || die "must run as root"
+
+backup_now() {
+    mkdir -p "$BACKUP_DIR"
+    local stamp dest
+    stamp=$(date +%Y%m%d-%H%M%S)
+    dest="$BACKUP_DIR/logid.cfg.$stamp"
+    if [[ -f $CFG ]]; then
+        local newest
+        newest=$(ls -1t "$BACKUP_DIR"/logid.cfg.* 2>/dev/null | head -1)
+        if [[ -n $newest ]] && cmp -s "$newest" "$CFG"; then
+            echo "$newest"          # already have this exact state
+            return
+        fi
+        cp -a "$CFG" "$dest"
+        echo "$dest"
+    fi
+    # Prune oldest, keep the most recent $KEEP.
+    ls -1t "$BACKUP_DIR"/logid.cfg.* 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -f
+}
+
+service_healthy() {
+    systemctl is-active --quiet "$SERVICE" || return 1
+    # logid exits non-zero on a parse error, but a config that parses yet names
+    # an unknown key can leave it running while logging a fatal line. Catch both.
+    if journalctl -u "$SERVICE" --since "-${SETTLE}s" --no-pager 2>/dev/null \
+        | grep -qiE 'error|failed to parse|cannot open|\[ERROR\]'; then
+        return 1
+    fi
+    return 0
+}
+
+case "${1-}" in
+    --list-backups)
+        ls -1t "$BACKUP_DIR"/logid.cfg.* 2>/dev/null || true
+        exit 0
+        ;;
+    --revert)
+        src="${2-}"
+        if [[ -z $src ]]; then
+            # Newest backup that actually differs from what is live, so that a
+            # failed apply (which restores and leaves an identical backup) does
+            # not shadow the last real configuration.
+            while read -r cand; do
+                if [[ ! -f $CFG ]] || ! cmp -s "$cand" "$CFG"; then src=$cand; break; fi
+            done < <(ls -1t "$BACKUP_DIR"/logid.cfg.* 2>/dev/null)
+            [[ -n $src ]] || die "no backup differs from the current config"
+        fi
+        [[ -f $src ]] || die "no such backup: $src"
+        install -m 0644 -o root -g root "$src" "$CFG"
+        systemctl restart "$SERVICE"
+        sleep "$SETTLE"
+        service_healthy || die "reverted to $src but $SERVICE is still unhealthy"
+        echo "reverted to $src"
+        exit 0
+        ;;
+    "")
+        die "usage: mouse-apply <candidate-file> | --revert [file] | --list-backups"
+        ;;
+esac
+
+CANDIDATE=$1
+[[ -f $CANDIDATE ]] || die "no such file: $CANDIDATE"
+[[ -s $CANDIDATE ]] || die "candidate config is empty — refusing to install"
+grep -q 'devices:' "$CANDIDATE" || die "candidate has no devices: block — refusing to install"
+
+BACKUP=$(backup_now)
+
+install -m 0644 -o root -g root "$CANDIDATE" "$CFG"
+
+if ! systemctl restart "$SERVICE"; then
+    if [[ -n ${BACKUP:-} ]]; then
+        install -m 0644 -o root -g root "$BACKUP" "$CFG"
+        systemctl restart "$SERVICE" || true
+        rm -f "$BACKUP"
+    fi
+    die "restart failed; rolled back to the previous config"
+fi
+
+sleep "$SETTLE"
+
+if ! service_healthy; then
+    tail_out=$(journalctl -u "$SERVICE" -n 20 --no-pager 2>/dev/null || true)
+    if [[ -n ${BACKUP:-} ]]; then
+        install -m 0644 -o root -g root "$BACKUP" "$CFG"
+        systemctl restart "$SERVICE" || true
+        echo "rolled back to $BACKUP" >&2
+        rm -f "$BACKUP"   # identical to live now; keep --revert meaningful
+    fi
+    echo "$tail_out" >&2
+    die "new config did not come up cleanly — rolled back, your buttons are unchanged"
+fi
+
+echo "applied ok (backup: ${BACKUP:-none})"

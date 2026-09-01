@@ -1,0 +1,681 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>M720 Configuration</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --panel2:#eceef2; --line:#d8dbe2;
+  --fg:#1b1d21; --dim:#6b7280; --accent:#1f7ae0; --accent-fg:#fff;
+  --ok:#137a4a; --warn:#9a6400; --bad:#b3261e; --shadow:0 1px 3px rgba(0,0,0,.12);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#16181d; --panel:#1e2128; --panel2:#262a33; --line:#333845;
+    --fg:#e6e8ec; --dim:#9aa1ad; --accent:#4c9aff; --accent-fg:#0b1220;
+    --ok:#4ec98a; --warn:#e0b341; --bad:#ff6b5e; --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:14px/1.5 Inter,-apple-system,"Segoe UI",Roboto,Cantarell,sans-serif}
+button,select,input{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;
+  background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{font-size:16px;margin:0;font-weight:650}
+.sub{color:var(--dim);font-size:12px}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;
+  background:var(--panel2);font-size:12px;border:1px solid var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)} .dot.warn{background:var(--warn)}
+.btn{padding:7px 14px;border-radius:7px;border:1px solid var(--line);
+  background:var(--panel2);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600}
+.btn.primary:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent}
+main{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:16px;
+  padding:16px 20px;align-items:start}
+@media (max-width:860px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  padding:16px;box-shadow:var(--shadow)}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--dim);margin:0 0 12px;font-weight:600}
+svg .hot{fill:var(--panel2);stroke:var(--line);stroke-width:2;cursor:pointer;transition:.12s}
+svg .hot:hover{fill:var(--line)}
+svg .hot.sel{fill:var(--accent);stroke:var(--accent)}
+svg .body{fill:var(--panel2);stroke:var(--line);stroke-width:2}
+svg text{fill:var(--dim);font-size:11px;pointer-events:none}
+svg text.lbl-sel{fill:var(--accent);font-weight:600}
+svg .lead{stroke:var(--line);stroke-width:1;stroke-dasharray:2 2}
+svg .hot.wheel{fill:var(--panel);stroke:var(--dim)}
+svg .hot.wheel.sel{fill:var(--accent);stroke:var(--accent)}
+svg .hot.ring{stroke:var(--line);stroke-width:2;fill:none}
+svg .hot.ring:hover{stroke:var(--accent);fill:none}
+svg .hot.ring.sel{stroke:var(--accent);fill:none;stroke-dasharray:none}
+.blist{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.brow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;
+  border:1px solid transparent;cursor:pointer;text-align:left;background:transparent;width:100%}
+.brow:hover{background:var(--panel2)}
+.brow.sel{background:var(--panel2);border-color:var(--accent)}
+.brow .nm{font-weight:600}
+.rowsep{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);font-weight:600;margin:12px 0 2px;padding-top:10px;border-top:1px solid var(--line)}
+.brow .as{color:var(--dim);font-size:12px;margin-left:auto;text-align:right;
+  max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+label{display:block;font-size:12px;color:var(--dim);margin:14px 0 6px;font-weight:600}
+select,input[type=text],input[type=number]{width:100%;padding:8px 10px;border-radius:7px;
+  border:1px solid var(--line);background:var(--bg)}
+.types{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.type{padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);
+  cursor:pointer;text-align:center;font-size:12.5px}
+.type.sel{border-color:var(--accent);background:var(--accent);color:var(--accent-fg);font-weight:600}
+.keys{display:flex;gap:6px;flex-wrap:wrap;align-items:center;min-height:38px;
+  padding:7px;border:1px dashed var(--line);border-radius:8px;background:var(--bg)}
+.kbd{padding:3px 9px;border-radius:5px;background:var(--panel2);
+  border:1px solid var(--line);font:12px ui-monospace,Menlo,monospace}
+.rec{border-color:var(--accent)!important}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gest{border:1px solid var(--line);border-radius:9px;padding:11px;margin-bottom:9px;background:var(--bg)}
+.gest .gh{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;margin-bottom:8px}
+.arrow{width:22px;height:22px;display:grid;place-items:center;border-radius:5px;
+  background:var(--panel2);font-size:12px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;
+  overflow:auto;max-height:340px;font:12px/1.5 ui-monospace,Menlo,monospace;margin:0}
+.note{font-size:12px;color:var(--dim);margin-top:8px}
+.note.warn{color:var(--warn)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140%);
+  background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);
+  padding:12px 18px;border-radius:9px;box-shadow:var(--shadow);transition:.25s;
+  max-width:min(620px,92vw);z-index:9;white-space:pre-wrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.bad{border-left-color:var(--bad)} #toast.ok{border-left-color:var(--ok)}
+.tabs{display:flex;gap:4px;margin-bottom:14px}
+.tab{padding:6px 13px;border-radius:7px;cursor:pointer;border:1px solid transparent;
+  background:transparent;color:var(--dim);font-weight:600;font-size:13px}
+.tab.sel{background:var(--panel2);color:var(--fg);border-color:var(--line)}
+</style>
+
+<header>
+  <div>
+    <h1>M720 Configuration</h1>
+    <div class="sub" id="devname">&hellip;</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="pill"><span class="dot" id="svcdot"></span><span id="svctext">service</span></span>
+  <span class="pill"><span class="dot" id="devdot"></span><span id="devtext">mouse</span></span>
+  <select id="profile" style="width:auto;min-width:150px"></select>
+  <button class="btn ghost" id="saveprof">Save as&hellip;</button>
+  <button class="btn" id="revert">Revert</button>
+  <button class="btn primary" id="apply">Apply</button>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Device</h2>
+    <svg viewBox="0 0 340 330" width="100%" height="240" id="mouse"></svg>
+    <div class="blist" id="blist"></div>
+  </div>
+
+  <div>
+    <div class="tabs">
+      <button class="tab sel" data-tab="button">Button</button>
+      <button class="tab" data-tab="pointer">Pointer &amp; scroll</button>
+      <button class="tab" data-tab="config">Config file</button>
+    </div>
+    <div class="card" id="pane"></div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const TOKEN = "__TOKEN__";
+const api = async (path, body) => {
+  const r = await fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: {"X-Token": TOKEN, "Content-Type": "application/json"},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return {ok: r.ok, data: await r.json().catch(() => ({}))};
+};
+
+let MODEL = {device: "", settings: {}, buttons: {}};
+let BUTTONS = [], PROFILES = {active: "Default", profiles: {}};
+let SEL = "0x52", TAB = "button", RECORD = null;
+let SCROLL = {installed: null, running: false};
+
+const PRESETS = {
+  "Editing": [
+    ["Copy", ["KEY_LEFTCTRL","KEY_C"]],
+    ["Copy (terminal-safe)", ["KEY_LEFTCTRL","KEY_INSERT"]],
+    ["Paste", ["KEY_LEFTCTRL","KEY_V"]],
+    ["Paste (terminal-safe)", ["KEY_LEFTSHIFT","KEY_INSERT"]],
+    ["Cut", ["KEY_LEFTCTRL","KEY_X"]],
+    ["Undo", ["KEY_LEFTCTRL","KEY_Z"]],
+    ["Redo", ["KEY_LEFTCTRL","KEY_LEFTSHIFT","KEY_Z"]],
+    ["Select all", ["KEY_LEFTCTRL","KEY_A"]],
+    ["Save", ["KEY_LEFTCTRL","KEY_S"]],
+    ["Find", ["KEY_LEFTCTRL","KEY_F"]],
+    ["Print", ["KEY_LEFTCTRL","KEY_P"]]
+  ],
+  "Navigation": [
+    ["Browser back", ["KEY_BACK"]],
+    ["Browser forward", ["KEY_FORWARD"]],
+    ["Refresh", ["KEY_LEFTCTRL","KEY_R"]],
+    ["New tab", ["KEY_LEFTCTRL","KEY_T"]],
+    ["Close tab", ["KEY_LEFTCTRL","KEY_W"]],
+    ["Reopen closed tab", ["KEY_LEFTCTRL","KEY_LEFTSHIFT","KEY_T"]],
+    ["Page up", ["KEY_PAGEUP"]],
+    ["Page down", ["KEY_PAGEDOWN"]]
+  ],
+  "Windows & workspaces": [
+    ["Multitasking view (Pantheon)", ["KEY_LEFTMETA","KEY_DOWN"]],
+    ["Workspace left", ["KEY_LEFTMETA","KEY_LEFT"]],
+    ["Workspace right", ["KEY_LEFTMETA","KEY_RIGHT"]],
+    ["Applications menu", ["KEY_LEFTMETA"]],
+    ["Switch application", ["KEY_LEFTALT","KEY_TAB"]],
+    ["Show desktop", ["KEY_LEFTMETA","KEY_D"]],
+    ["Close window", ["KEY_LEFTALT","KEY_F4"]],
+    ["Lock screen", ["KEY_LEFTMETA","KEY_L"]]
+  ],
+  "Media": [
+    ["Play / pause", ["KEY_PLAYPAUSE"]],
+    ["Next track", ["KEY_NEXTSONG"]],
+    ["Previous track", ["KEY_PREVIOUSSONG"]],
+    ["Volume up", ["KEY_VOLUMEUP"]],
+    ["Volume down", ["KEY_VOLUMEDOWN"]],
+    ["Mute", ["KEY_MUTE"]],
+    ["Brightness up", ["KEY_BRIGHTNESSUP"]],
+    ["Brightness down", ["KEY_BRIGHTNESSDOWN"]]
+  ],
+  "Keys": [
+    ["Enter", ["KEY_ENTER"]],
+    ["Escape", ["KEY_ESC"]],
+    ["Delete", ["KEY_DELETE"]],
+    ["Tab", ["KEY_TAB"]],
+    ["Screenshot", ["KEY_PRINT"]],
+    ["Zoom in", ["KEY_LEFTCTRL","KEY_EQUAL"]],
+    ["Zoom out", ["KEY_LEFTCTRL","KEY_MINUS"]],
+    ["Zoom reset", ["KEY_LEFTCTRL","KEY_0"]]
+  ],
+  "Mouse buttons (test these)": [
+    ["Middle click", ["BTN_MIDDLE"]],
+    ["Right click", ["BTN_RIGHT"]],
+    ["Left click", ["BTN_LEFT"]]
+  ]
+};
+
+const presetName = keys => {
+  const j = (keys || []).join("+");
+  for (const g of Object.values(PRESETS))
+    for (const pair of g) if (pair[1].join("+") === j) return pair[0];
+  return null;
+};
+const prettyKeys = keys => (keys || []).map(k =>
+  k.replace(/^KEY_/, "").replace(/^BTN_/, "Btn ")
+   .replace("LEFTCTRL","Ctrl").replace("RIGHTCTRL","Ctrl")
+   .replace("LEFTSHIFT","Shift").replace("RIGHTSHIFT","Shift")
+   .replace("LEFTALT","Alt").replace("RIGHTALT","AltGr")
+   .replace("LEFTMETA","Super").replace("RIGHTMETA","Super")
+   .replace("PAGEUP","PgUp").replace("PAGEDOWN","PgDn")
+   .toLowerCase().replace(/^./, c => c.toUpperCase())
+).join(" + ");
+
+const describe = a => {
+  if (!a || a.type === "default") return "Default (unchanged)";
+  if (a.type === "none") return "Disabled";
+  if (a.type === "keypress") return presetName(a.keys) || prettyKeys(a.keys) || "No keys set";
+  if (a.type === "gestures") {
+    const n = Object.values(a.gestures || {}).filter(g => g && g.type !== "none" && g.type !== "default").length;
+    return "Gestures (" + n + " assigned)";
+  }
+  if (a.type === "changehost")
+    return a.host === "next" ? "Next computer"
+         : a.host === "prev" ? "Previous computer" : "Computer " + a.host;
+  if (a.type === "cycledpi") return "Cycle DPI";
+  return a.type;
+};
+
+const SHAPES = {
+  "0x52": {at:[176,44,18,54], r:9,  lead:[194,62,252,62],  lx:256, ly:66, anchor:"start"},
+  "0x5d": {at:[201,56,13,30], r:5,  lead:[214,92,252,92],  lx:256, ly:96, anchor:"start"},
+  "0x5b": {at:[156,56,13,30], r:5,  lead:[156,92,96,92],   lx:92,  ly:96, anchor:"end"},
+  "0x56": {at:[107,112,21,34], r:8, lead:[107,129,96,129], lx:92,  ly:133, anchor:"end"},
+  "0x53": {at:[107,152,21,34], r:8, lead:[107,169,96,169], lx:92,  ly:173, anchor:"end"},
+  "0xd0": {at:[103,198,29,48], r:12,lead:[103,222,96,222], lx:92,  ly:226, anchor:"end"}
+};
+
+function drawMouse() {
+  const svg = document.getElementById("mouse");
+  const wheelSel = SEL === "scroll";
+  let h =
+    // body
+    '<path class="body" d="M185 12 C136 12 120 58 120 128 L120 238 ' +
+    'C120 294 148 318 185 318 C222 318 250 294 250 238 L250 128 ' +
+    'C250 58 234 12 185 12 Z"/>' +
+    // main click split — context only, not remappable
+    '<line x1="185" y1="14" x2="185" y2="104" stroke="var(--line)" stroke-width="2"/>' +
+    '<line x1="120" y1="104" x2="250" y2="104" stroke="var(--line)" stroke-width="2"/>' +
+    '<text x="150" y="32" text-anchor="middle" opacity=".7">Left</text>' +
+    '<text x="222" y="32" text-anchor="middle" opacity=".7">Right</text>' +
+    // the scroll wheel itself: selectable, opens speed & direction
+    '<rect class="hot wheel' + (wheelSel ? " sel" : "") + '" data-sel="scroll" ' +
+    'x="174" y="42" width="22" height="58" rx="11"><title>Scroll wheel</title></rect>' +
+    '<g stroke="var(--dim)" stroke-width="1.5" opacity=".55" pointer-events="none">' +
+    '<line x1="179" y1="56" x2="191" y2="56"/>' +
+    '<line x1="179" y1="64" x2="191" y2="64"/>' +
+    '<line x1="179" y1="72" x2="191" y2="72"/>' +
+    '<line x1="179" y1="80" x2="191" y2="80"/></g>';
+
+  BUTTONS.forEach(b => {
+    const s2 = SHAPES[b.cid]; if (!s2) return;
+    const sel = b.cid === SEL;
+    // 0x52 is the wheel pressed down — draw it as a ring around the wheel
+    // rather than a second body, so the diagram matches the hardware.
+    if (b.cid === "0x52") {
+      h += '<rect class="hot ring' + (sel ? " sel" : "") + '" data-cid="0x52" ' +
+           'x="170" y="38" width="30" height="66" rx="15" fill="none" ' +
+           'stroke-dasharray="4 3"><title>Wheel click (middle button)</title></rect>';
+    } else {
+      h += '<rect class="hot' + (sel ? " sel" : "") + '" data-cid="' + b.cid +
+           '" x="' + s2.at[0] + '" y="' + s2.at[1] + '" width="' + s2.at[2] +
+           '" height="' + s2.at[3] + '" rx="' + s2.r + '"><title>' + b.name + '</title></rect>';
+    }
+    h += '<line class="lead" x1="' + s2.lead[0] + '" y1="' + s2.lead[1] + '" x2="' +
+         s2.lead[2] + '" y2="' + s2.lead[3] + '"/>' +
+         '<text x="' + s2.lx + '" y="' + s2.ly + '" text-anchor="' + s2.anchor + '"' +
+         (sel ? ' class="lbl-sel"' : '') + '>' + b.name + '</text>';
+  });
+
+  // label for the wheel itself
+  h += '<line class="lead" x1="185" y1="100" x2="185" y2="116"/>' +
+       '<text x="185" y="130" text-anchor="middle"' + (wheelSel ? ' class="lbl-sel"' : '') +
+       '>Scroll wheel</text>';
+
+  svg.innerHTML = h;
+  svg.querySelectorAll("[data-cid]").forEach(el =>
+    el.onclick = () => { SEL = el.dataset.cid; TAB = "button"; syncTabs(); render(); });
+  svg.querySelectorAll("[data-sel]").forEach(el =>
+    el.onclick = () => { SEL = "scroll"; TAB = "pointer"; syncTabs(); render(); });
+}
+
+function scrollSummary() {
+  const c = (MODEL.settings && MODEL.settings.scroll) || {};
+  if (!c.enabled) return "System default";
+  return c.lines + " step" + (c.lines === 1 ? "" : "s") + (c.invert ? ", inverted" : "");
+}
+
+function renderList() {
+  const rows = BUTTONS.map(b =>
+    '<button class="brow' + (b.cid === SEL ? " sel" : "") + '" data-cid="' + b.cid + '">' +
+    '<span class="nm">' + b.name + '</span>' +
+    '<span class="as">' + describe(MODEL.buttons[b.cid]) + '</span></button>').join("");
+  document.getElementById("blist").innerHTML = rows +
+    '<div class="rowsep">Scrolling</div>' +
+    '<button class="brow' + (SEL === "scroll" ? " sel" : "") + '" data-scroll="1">' +
+    '<span class="nm">Scroll wheel</span>' +
+    '<span class="as">' + scrollSummary() + '</span></button>';
+  document.querySelectorAll("[data-cid].brow").forEach(el =>
+    el.onclick = () => { SEL = el.dataset.cid; TAB = "button"; syncTabs(); render(); });
+  document.querySelectorAll("[data-scroll]").forEach(el =>
+    el.onclick = () => { SEL = "scroll"; TAB = "pointer"; syncTabs(); render(); });
+}
+
+const TYPES = [
+  ["default", "Default"], ["keypress", "Keystroke"], ["gestures", "Gestures"],
+  ["changehost", "Easy-Switch"], ["cycledpi", "Cycle DPI"], ["none", "Disable"]
+];
+
+function actionEditor(a, allowGestures, idp) {
+  const types = allowGestures ? TYPES : TYPES.filter(t => t[0] !== "gestures");
+  let h = '<div class="types">' + types.map(t =>
+    '<div class="type' + ((a.type || "default") === t[0] ? " sel" : "") +
+    '" data-t="' + t[0] + '" data-p="' + idp + '">' + t[1] + "</div>").join("") + "</div>";
+
+  if (a.type === "keypress") {
+    let opts = '<option value="">&mdash; custom &mdash;</option>';
+    for (const g of Object.keys(PRESETS)) {
+      opts += '<optgroup label="' + g + '">' + PRESETS[g].map(p =>
+        '<option value="' + p[1].join(",") + '"' +
+        ((a.keys || []).join(",") === p[1].join(",") ? " selected" : "") + ">" + p[0] + "</option>"
+      ).join("") + "</optgroup>";
+    }
+    const chips = (a.keys || []).length
+      ? a.keys.map(k => '<span class="kbd">' + k.replace(/^KEY_/, "") + "</span>").join("")
+      : '<span style="color:var(--dim)">' +
+        (RECORD === idp ? "press a combination&hellip;" : "nothing assigned") + "</span>";
+    h += '<label>Preset action</label><select data-preset="' + idp + '">' + opts + "</select>" +
+         "<label>Keystroke</label>" +
+         '<div class="keys' + (RECORD === idp ? " rec" : "") + '">' + chips + "</div>" +
+         '<div style="display:flex;gap:8px;margin-top:8px">' +
+         '<button class="btn" data-rec="' + idp + '">' +
+         (RECORD === idp ? "Stop recording" : "Record keystroke") + "</button>" +
+         '<button class="btn ghost" data-clr="' + idp + '">Clear</button></div>';
+  }
+
+  if (a.type === "changehost") {
+    const hosts = [["next","Next computer"],["prev","Previous computer"],
+                   ["1","Computer 1"],["2","Computer 2"],["3","Computer 3"]];
+    h += '<label>Switch to</label><select data-host="' + idp + '">' + hosts.map(o =>
+      '<option value="' + o[0] + '"' + (String(a.host) === o[0] ? " selected" : "") +
+      ">" + o[1] + "</option>").join("") + "</select>" +
+      '<div class="note">Same as tapping the Easy-Switch button underneath the mouse.</div>';
+  }
+
+  if (a.type === "cycledpi") {
+    h += "<label>DPI steps (comma separated)</label>" +
+      '<input type="text" data-dpis="' + idp + '" value="' + (a.dpis || [1000]).join(", ") + '">' +
+      '<div class="note warn">The M720 may not expose adjustable DPI over HID++. If nothing ' +
+      'changes, logid logs a warning and the rest of your config still works.</div>';
+  }
+  return h;
+}
+
+const GDIRS = [["none","Click (no movement)","●"],["up","Move up","↑"],
+               ["down","Move down","↓"],["left","Move left","←"],["right","Move right","→"]];
+
+function renderPane() {
+  const pane = document.getElementById("pane");
+
+  if (TAB === "config") {
+    pane.innerHTML = "<h2>Generated logid.cfg</h2><pre id=\"cfg\">building&hellip;</pre>" +
+      '<div class="note">Exactly what gets written to /etc/logid.cfg when you hit Apply. ' +
+      "The previous file is backed up to /var/backups/m720-config first.</div>";
+    api("/api/preview", MODEL).then(r => {
+      document.getElementById("cfg").textContent = r.data.config || r.data.error || "";
+    });
+    return;
+  }
+
+  if (TAB === "pointer") {
+    const st = MODEL.settings || (MODEL.settings = {});
+    const c = st.scroll || (st.scroll = {enabled: false, lines: 3, invert: false});
+    const missing = SCROLL.installed === false;
+
+    pane.innerHTML = "<h2>Scroll wheel</h2>" +
+      (missing
+        ? '<div class="note warn" style="margin:0 0 12px">Scroll speed needs <b>imwheel</b>, ' +
+          "which is not installed. Install it, then come back:<br>" +
+          "<code>sudo apt install imwheel</code></div>"
+        : "") +
+      '<label><input type="checkbox" id="scon"' + (c.enabled ? " checked" : "") +
+      (missing ? " disabled" : "") + '> Customise scroll speed</label>' +
+      '<div id="scbody" style="opacity:' + (c.enabled ? 1 : .45) +
+      ';pointer-events:' + (c.enabled ? "auto" : "none") + '">' +
+      "<label>Lines per wheel click &mdash; <b id=\"sclab\">" + c.lines + "</b></label>" +
+      '<input type="range" id="sclines" min="1" max="15" step="1" value="' + c.lines + '" ' +
+      'style="width:100%;padding:0">' +
+      '<div class="note" style="display:flex;justify-content:space-between;margin-top:2px">' +
+      "<span>1 &middot; default</span><span>15 &middot; very fast</span></div>" +
+      '<label style="margin-top:16px"><input type="checkbox" id="scinv"' +
+      (c.invert ? " checked" : "") + "> Invert scroll direction (natural scrolling)</label>" +
+      "</div>" +
+      '<div class="note">Applied by <b>imwheel</b>, which re-sends each wheel click. ' +
+      "logiops has no scroll-speed setting &mdash; its only device knobs are DPI, SmartShift " +
+      "and hi-res scroll, none of which affect a ratcheted wheel. imwheel runs as your user " +
+      "and starts with your session.</div>" +
+      '<div class="note">Ctrl+scroll (zoom) and Shift+scroll are passed through unmultiplied, ' +
+      "so zooming still moves one step at a time.</div>" +
+      '<div class="note">Status: imwheel ' +
+      (SCROLL.installed ? (SCROLL.running ? "installed and running" : "installed, not running")
+                        : "not installed") + "</div>" +
+
+      "<h2 style=\"margin-top:26px\">Pointer</h2>" +
+      "<label>Sensitivity (DPI)</label>" +
+      '<div class="grid2"><input type="number" id="dpi" min="200" max="4000" step="50" value="' +
+      (st.dpi || "") + '" placeholder="blank = hardware default">' +
+      '<button class="btn ghost" id="dpiclear">Leave at hardware default</button></div>' +
+      '<div class="note warn">logid has a <code>dpi</code> setting, but the M720 may not ' +
+      "implement the HID++ adjustable-DPI feature. Set it, apply, then check <code>mouse logs</code> " +
+      "&mdash; clear it if logid reports the feature is unsupported.</div>" +
+      '<div class="note">For pointer <i>acceleration</i>, use System Settings &rarr; Mouse &amp; ' +
+      "Touchpad &mdash; that is a libinput setting, not something logid or imwheel controls.</div>" +
+
+      "<h2 style=\"margin-top:26px\">Horizontal scroll</h2>" +
+      '<div class="note">Set <b>Wheel tilt left</b> and <b>Wheel tilt right</b> back to ' +
+      "<b>Default</b> on the Button tab to restore native horizontal scrolling &mdash; logid " +
+      "cannot emit scroll axes from a Keystroke action. imwheel is limited to buttons 4 and 5, " +
+      "so it never interferes with the tilts.</div>";
+
+    const con = document.getElementById("scon");
+    con.onchange = () => { c.enabled = con.checked; render(); };
+    const sl = document.getElementById("sclines");
+    sl.oninput = () => {
+      c.lines = parseInt(sl.value, 10);
+      document.getElementById("sclab").textContent = c.lines;
+    };
+    sl.onchange = () => renderList();
+    document.getElementById("scinv").onchange = e => { c.invert = e.target.checked; renderList(); };
+    document.getElementById("dpi").onchange = e => {
+      st.dpi = e.target.value ? parseInt(e.target.value, 10) : null;
+    };
+    document.getElementById("dpiclear").onclick = () => { st.dpi = null; render(); };
+    return;
+  }
+
+  const spec = BUTTONS.find(b => b.cid === SEL);
+  if (!MODEL.buttons[SEL]) MODEL.buttons[SEL] = {type: "default"};
+  const a = MODEL.buttons[SEL];
+
+  let h = "<h2>" + spec.name + ' <span style="color:var(--dim);font-weight:400">&middot; ' +
+          spec.hint + " &middot; cid " + SEL + "</span></h2>" + actionEditor(a, true, "main");
+
+  if (a.type === "gestures") {
+    if (!a.gestures) a.gestures = {};
+    h += "<label>Gesture assignments</label>";
+    GDIRS.forEach(d => {
+      const g = a.gestures[d[0]] || {type: "default"};
+      h += '<div class="gest"><div class="gh"><span class="arrow">' + d[2] + "</span>" + d[1] +
+           "</div>" + actionEditor(g, false, "g:" + d[0]) + "</div>";
+    });
+    const th = (a.gestures.up && a.gestures.up.threshold) || 50;
+    h += '<label>Movement threshold</label><input type="number" id="gthresh" min="0" max="500" ' +
+         'step="10" value="' + th + '">' +
+         '<div class="note">How far the mouse must move while the button is held before a ' +
+         "direction counts. Applies to all four directions.</div>";
+  }
+
+  if (a.type === "default") {
+    h += '<div class="note">The button keeps whatever the mouse does natively &mdash; logid will ' +
+         "not touch it. For the wheel tilts that means horizontal scrolling; for back/forward, " +
+         "browser navigation.</div>";
+  }
+
+  pane.innerHTML = h;
+
+  const target = p => {
+    if (p === "main") return MODEL.buttons[SEL];
+    const d = p.slice(2);
+    if (!MODEL.buttons[SEL].gestures[d]) MODEL.buttons[SEL].gestures[d] = {type: "default"};
+    return MODEL.buttons[SEL].gestures[d];
+  };
+
+  pane.querySelectorAll(".type").forEach(el => el.onclick = () => {
+    const t = target(el.dataset.p);
+    Object.keys(t).forEach(k => delete t[k]);
+    t.type = el.dataset.t;
+    if (t.type === "keypress") t.keys = [];
+    if (t.type === "gestures") t.gestures = {};
+    if (t.type === "changehost") t.host = "next";
+    if (t.type === "cycledpi") t.dpis = [1000];
+    RECORD = null; render();
+  });
+  pane.querySelectorAll("[data-preset]").forEach(el => el.onchange = () => {
+    if (!el.value) return;
+    const t = target(el.dataset.preset);
+    t.keys = el.value.split(",");
+    t.label = el.selectedOptions[0].textContent.trim();
+    render();
+  });
+  pane.querySelectorAll("[data-host]").forEach(el => el.onchange = () => {
+    target(el.dataset.host).host = el.value; render();
+  });
+  pane.querySelectorAll("[data-dpis]").forEach(el => el.onchange = () => {
+    target(el.dataset.dpis).dpis = el.value.split(",")
+      .map(n => parseInt(n.trim(), 10)).filter(Boolean);
+  });
+  pane.querySelectorAll("[data-rec]").forEach(el => el.onclick = () => {
+    RECORD = RECORD === el.dataset.rec ? null : el.dataset.rec;
+    held.clear(); render();
+  });
+  pane.querySelectorAll("[data-clr]").forEach(el => el.onclick = () => {
+    const t = target(el.dataset.clr); t.keys = []; delete t.label; render();
+  });
+  const gt = document.getElementById("gthresh");
+  if (gt) gt.onchange = () => {
+    GDIRS.forEach(d => {
+      if (d[0] !== "none" && MODEL.buttons[SEL].gestures[d[0]])
+        MODEL.buttons[SEL].gestures[d[0]].threshold = parseInt(gt.value, 10) || 0;
+    });
+  };
+}
+
+function renderProfiles() {
+  const sel = document.getElementById("profile");
+  sel.innerHTML = '<option value="">&mdash; unsaved &mdash;</option>' +
+    Object.keys(PROFILES.profiles).map(n =>
+      "<option" + (n === PROFILES.active ? " selected" : "") + ">" + n + "</option>").join("");
+}
+
+function syncTabs() {
+  document.querySelectorAll(".tab").forEach(x =>
+    x.classList.toggle("sel", x.dataset.tab === TAB));
+}
+
+function render() {
+  document.getElementById("devname").textContent = MODEL.device || "unknown device";
+  drawMouse(); renderList(); renderPane(); renderProfiles();
+}
+
+const CODE = {
+  ControlLeft:"KEY_LEFTCTRL", ControlRight:"KEY_RIGHTCTRL",
+  ShiftLeft:"KEY_LEFTSHIFT", ShiftRight:"KEY_RIGHTSHIFT",
+  AltLeft:"KEY_LEFTALT", AltRight:"KEY_RIGHTALT",
+  MetaLeft:"KEY_LEFTMETA", MetaRight:"KEY_RIGHTMETA",
+  ArrowUp:"KEY_UP", ArrowDown:"KEY_DOWN", ArrowLeft:"KEY_LEFT", ArrowRight:"KEY_RIGHT",
+  Enter:"KEY_ENTER", Space:"KEY_SPACE", Tab:"KEY_TAB", Escape:"KEY_ESC",
+  Backspace:"KEY_BACKSPACE", Delete:"KEY_DELETE", Insert:"KEY_INSERT",
+  Home:"KEY_HOME", End:"KEY_END", PageUp:"KEY_PAGEUP", PageDown:"KEY_PAGEDOWN",
+  Minus:"KEY_MINUS", Equal:"KEY_EQUAL", BracketLeft:"KEY_LEFTBRACE",
+  BracketRight:"KEY_RIGHTBRACE", Semicolon:"KEY_SEMICOLON", Quote:"KEY_APOSTROPHE",
+  Backquote:"KEY_GRAVE", Backslash:"KEY_BACKSLASH", Comma:"KEY_COMMA",
+  Period:"KEY_DOT", Slash:"KEY_SLASH", PrintScreen:"KEY_PRINT", CapsLock:"KEY_CAPSLOCK"
+};
+const toKey = code => CODE[code] ||
+  (/^Key[A-Z]$/.test(code) ? "KEY_" + code[3] : null) ||
+  (/^Digit\d$/.test(code) ? "KEY_" + code[5] : null) ||
+  (/^Numpad\d$/.test(code) ? "KEY_KP" + code[6] : null) ||
+  (/^F\d{1,2}$/.test(code) ? "KEY_" + code : null);
+
+const held = new Set();
+addEventListener("keydown", e => {
+  if (!RECORD) return;
+  e.preventDefault(); e.stopPropagation();
+  const k = toKey(e.code);
+  if (!k) return;
+  held.add(k);
+  const t = RECORD === "main" ? MODEL.buttons[SEL] : MODEL.buttons[SEL].gestures[RECORD.slice(2)];
+  const arr = Array.from(held);
+  const mods = arr.filter(x => /CTRL|SHIFT|ALT|META/.test(x));
+  const rest = arr.filter(x => !/CTRL|SHIFT|ALT|META/.test(x));
+  t.keys = mods.concat(rest);
+  delete t.label;
+  renderPane();
+}, true);
+addEventListener("keyup", e => {
+  if (!RECORD) return;
+  e.preventDefault(); held.delete(toKey(e.code));
+}, true);
+
+let toastTimer;
+function toast(msg, kind) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = "show " + (kind || "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ""; }, kind === "bad" ? 14000 : 5000);
+}
+
+function setStatus(s) {
+  if (!s) return;
+  const sd = document.getElementById("svcdot"), st = document.getElementById("svctext");
+  sd.className = "dot " + (s.active === "active" ? "ok" : "bad");
+  st.textContent = s.active === "active" ? "Service running" : "Service " + s.active;
+  const dd = document.getElementById("devdot"), dt = document.getElementById("devtext");
+  dd.className = "dot " + (s.connected === true ? "ok" : s.connected === false ? "warn" : "");
+  dt.textContent = s.connected === true ? "Mouse connected"
+                 : s.connected === false ? "Mouse asleep" : "Mouse unknown";
+}
+
+document.querySelectorAll(".tab").forEach(el => el.onclick = () => {
+  TAB = el.dataset.tab; syncTabs(); renderPane();
+});
+
+document.getElementById("apply").onclick = async e => {
+  const b = e.target;
+  b.disabled = true; b.textContent = "Applying…";
+  const r = await api("/api/apply", MODEL);
+  b.disabled = false; b.textContent = "Apply";
+  setStatus(r.data.service);
+  if (r.data.scroll) SCROLL = r.data.scroll;
+  const tail = r.data.scrollMessage
+    ? "\nScroll: " + r.data.scrollMessage : "";
+  if (r.data.ok && r.data.scrollOk !== false)
+    toast("Applied. Try your buttons — if something is wrong, hit Revert." + tail, "ok");
+  else if (r.data.ok)
+    toast("Buttons applied." + tail, "bad");
+  else
+    toast("Not applied:\n" + (r.data.message || r.data.error || "unknown error") + tail, "bad");
+  renderList();
+};
+
+document.getElementById("revert").onclick = async () => {
+  if (!confirm("Roll back to the previous configuration?")) return;
+  const r = await api("/api/revert", {});
+  setStatus(r.data.service);
+  if (r.data.ok) { toast("Rolled back. " + r.data.message, "ok"); load(); }
+  else toast("Revert failed:\n" + (r.data.message || ""), "bad");
+};
+
+document.getElementById("saveprof").onclick = async () => {
+  const name = prompt("Profile name", PROFILES.active || "Default");
+  if (!name) return;
+  PROFILES.profiles[name] = JSON.parse(JSON.stringify(MODEL));
+  PROFILES.active = name;
+  const r = await api("/api/profiles", PROFILES);
+  renderProfiles();
+  toast(r.data.ok ? 'Saved profile "' + name + '".' : "Could not save profile.",
+        r.data.ok ? "ok" : "bad");
+};
+
+document.getElementById("profile").onchange = e => {
+  const p = PROFILES.profiles[e.target.value];
+  if (!p) return;
+  MODEL = JSON.parse(JSON.stringify(p));
+  PROFILES.active = e.target.value;
+  render();
+  toast('Loaded "' + e.target.value + '". Hit Apply to make it live.');
+};
+
+async function load() {
+  const r = await api("/api/state");
+  if (!r.ok) { toast("Could not talk to the local server.", "bad"); return; }
+  BUTTONS = r.data.buttons;
+  MODEL = r.data.current || {device: "", settings: {}, buttons: {}};
+  if (!MODEL.settings) MODEL.settings = {};
+  if (!MODEL.buttons) MODEL.buttons = {};
+  BUTTONS.forEach(b => { if (!MODEL.buttons[b.cid]) MODEL.buttons[b.cid] = {type: "default"}; });
+  PROFILES = r.data.profiles || {active: "Default", profiles: {}};
+  SCROLL = r.data.scroll || {installed: null, running: false};
+  // Seed the scroll model from whatever imwheel is actually configured with.
+  if (!MODEL.settings.scroll)
+    MODEL.settings.scroll = {enabled: !!SCROLL.enabled, lines: SCROLL.lines || 3,
+                             invert: !!SCROLL.invert};
+  setStatus(r.data.service);
+  render();
+  if (r.data.readError)
+    toast("Heads up: " + r.data.readError +
+          ". Starting from defaults — check the Config file tab before applying.", "bad");
+}
+load();
+setInterval(() => api("/api/status").then(r => { if (r.ok) setStatus(r.data); }), 8000);
+</script>

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# mouse — control and configure the Logitech M720 button-mapping service.
+set -euo pipefail
+
+SERVICE=mouse.service
+CONFIG=/etc/logid.cfg
+UI_DIR=/usr/local/lib/m720-config
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: mouse <command>
+
+  start | stop | restart      control the service
+  status                      show service state
+  enable | disable            start at boot, or not
+  modify                      open the button configuration UI in a browser
+  logs [N]                    last N journal lines (default 50)
+  follow                      tail the journal live
+  edit                        edit /etc/logid.cfg by hand, then restart
+  revert                      roll back to the previous configuration
+USAGE
+    exit 1
+}
+
+case "${1-}" in
+    start|stop|restart|enable|disable)
+        systemctl "$1" "$SERVICE"
+        ;;
+    status)
+        systemctl status "$SERVICE" --no-pager
+        ;;
+    logs)
+        journalctl -u "$SERVICE" -n "${2:-50}" --no-pager
+        ;;
+    follow)
+        journalctl -u "$SERVICE" -f
+        ;;
+    modify)
+        [[ -x $UI_DIR/server.py ]] || {
+            echo "mouse: $UI_DIR/server.py is missing — reinstall m720-config" >&2
+            exit 1
+        }
+        exec "$UI_DIR/server.py" "${@:2}"
+        ;;
+    edit)
+        sudo "${EDITOR:-nano}" "$CONFIG" && systemctl restart "$SERVICE"
+        ;;
+    revert)
+        if command -v pkexec >/dev/null 2>&1 && [[ -n ${DISPLAY-}${WAYLAND_DISPLAY-} ]]; then
+            pkexec /usr/local/bin/mouse-apply --revert
+        else
+            sudo /usr/local/bin/mouse-apply --revert
+        fi
+        ;;
+    *)
+        [[ -n ${1-} ]] && echo "mouse: unknown command '$1'" >&2
+        usage
+        ;;
+esac
