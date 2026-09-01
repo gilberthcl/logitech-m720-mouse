@@ -87,3 +87,88 @@ wonder why a button went dead. Buttons mapped to non-keystroke actions
 
 So on macOS this is a partial tool. Worth being clear about that before
 building it.
+
+---
+
+# The macOS remapper
+
+The probes came back positive: all six controls are reachable through a plain
+event tap. No driver, no system extension, no root.
+
+| Control | How it arrives |
+|---|---|
+| Wheel click | `otherMouse` button 2 |
+| Back | `otherMouse` button 3 |
+| Forward | `otherMouse` button 4 |
+| Wheel tilt L/R | `scrollWheel`, horizontal delta |
+| Wheel rotation | `scrollWheel`, vertical delta |
+| Gesture button | a `Ctrl+Up` **keystroke** from the mouse's own keyboard collection |
+
+The gesture button is the interesting one. It is byte-identical to Ctrl+Up
+typed on a keyboard except for the event's `keyboardType`: this mouse reports
+**40**, the keyboard reports **41**. The daemon keys on that, so remapping the
+gesture button does not hijack Ctrl+Up on your keyboard. If a future keyboard
+also reports 40, re-run `probe-2-events.swift` and set `gestureKeyboardType`
+in the config to match.
+
+## Install
+
+```bash
+cd ~/m720-config/macos && ./install.sh
+```
+
+No sudo. It compiles `m720d` with `swiftc`, installs a LaunchAgent, and starts
+it. Then grant Accessibility permission — **System Settings > Privacy &
+Security > Accessibility**, add `~/.local/bin/m720d` (Cmd-Shift-G to type the
+path) — and run `mouse restart`.
+
+Everything lands under your home directory:
+
+```
+~/.local/bin/m720d                        the remapper (~40 KB)
+~/.local/bin/mouse                        control CLI
+~/Library/LaunchAgents/local.m720d.plist  user agent
+~/.config/m720-config/config.json         configuration
+~/Library/Logs/m720d.log                  log
+```
+
+## Use
+
+| Command | Effect |
+|---|---|
+| `mouse status` | is it running |
+| `mouse edit` | edit config.json, then reload |
+| `mouse reload` | re-read the config without dropping the tap |
+| `mouse restart` | full restart |
+| `mouse logs [N]` / `mouse follow` | log |
+| `mouse revert` | restore the previous config |
+
+## Configuration
+
+`~/.config/m720-config/config.json`. Control names are `button2` (wheel click),
+`button3` (back), `button4` (forward), `tiltLeft`, `tiltRight`, `gesture`.
+
+```json
+{
+  "buttons": {
+    "button2":   { "type": "default" },
+    "button3":   { "type": "keystroke", "keys": ["cmd", "c"] },
+    "tiltLeft":  { "type": "keystroke", "keys": ["ctrl", "left"] },
+    "gesture":   { "type": "default" }
+  },
+  "scroll": { "enabled": false, "multiplier": 3, "invert": false },
+  "gestureKeyboardType": 40,
+  "gestureEnabled": true
+}
+```
+
+`type` is `default` (pass through untouched), `none` (disable), or `keystroke`.
+Modifier names: `cmd`, `opt`, `ctrl`, `shift`, `fn`. Scroll speed is handled in
+the daemon here — no imwheel equivalent is needed.
+
+## Not done yet
+
+- **The web UI.** `mouse modify` is Linux-only for now; the shared `server.py`
+  writes `logid.cfg`. Wiring it to this JSON config is the next step.
+- **Compiled and tested on a Mac.** The daemon was written without a macOS
+  machine to build on. Expect the first `install.sh` to surface compile errors.

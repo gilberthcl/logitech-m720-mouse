@@ -1,0 +1,13 @@
+{
+  "buttons": {
+    "button2":   { "type": "default" },
+    "button3":   { "type": "keystroke", "keys": ["cmd", "c"] },
+    "button4":   { "type": "keystroke", "keys": ["cmd", "v"] },
+    "tiltLeft":  { "type": "keystroke", "keys": ["ctrl", "left"] },
+    "tiltRight": { "type": "keystroke", "keys": ["ctrl", "right"] },
+    "gesture":   { "type": "default" }
+  },
+  "scroll": { "enabled": false, "multiplier": 3, "invert": false },
+  "gestureKeyboardType": 40,
+  "gestureEnabled": true
+}

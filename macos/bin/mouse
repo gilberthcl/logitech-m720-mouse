@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# mouse — control and configure the M720 remapper on macOS.
+set -euo pipefail
+
+LABEL=local.m720d
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+CONFIG="$HOME/.config/m720-config/config.json"
+LOG="$HOME/Library/Logs/m720d.log"
+UI_DIR="$HOME/.local/lib/m720-config"
+TARGET="gui/$(id -u)/$LABEL"
+
+usage() {
+    cat >&2 <<'USAGE'
+Usage: mouse <command>
+
+  start | stop | restart      control the remapper
+  status                      show whether it is running
+  reload                      re-read the config without dropping the tap
+  modify                      open the configuration UI in a browser
+  logs [N]                    last N log lines (default 50)
+  follow                      tail the log live
+  edit                        edit config.json by hand, then reload
+  revert                      restore the previous configuration
+USAGE
+    exit 1
+}
+
+running_pid() { pgrep -x m720d 2>/dev/null | head -1; }
+
+case "${1-}" in
+    start)   launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null \
+             || launchctl kickstart "$TARGET" ;;
+    stop)    launchctl bootout "$TARGET" 2>/dev/null || true ;;
+    restart) launchctl kickstart -k "$TARGET" ;;
+    reload)
+        pid=$(running_pid) || true
+        if [[ -n ${pid:-} ]]; then kill -HUP "$pid" && echo "config reloaded"
+        else echo "m720d is not running" >&2; exit 1; fi ;;
+    status)
+        if pid=$(running_pid) && [[ -n $pid ]]; then
+            echo "m720d running (pid $pid)"
+            launchctl print "$TARGET" 2>/dev/null | awk '/state =|last exit/ {print "  " $0}'
+        else
+            echo "m720d is NOT running"
+            echo "  try: mouse start   then: mouse logs"
+            exit 3
+        fi ;;
+    logs)    tail -n "${2:-50}" "$LOG" 2>/dev/null || echo "no log at $LOG" ;;
+    follow)  tail -f "$LOG" ;;
+    edit)    "${EDITOR:-nano}" "$CONFIG" && "$0" reload ;;
+    modify)
+        if [[ -x $UI_DIR/server.py ]]; then
+            exec "$UI_DIR/server.py" "${@:2}"
+        fi
+        cat >&2 <<'NOUI'
+The configuration UI is not available on macOS yet — the Linux one writes
+/etc/logid.cfg, which does not apply here.
+
+For now:  mouse edit      (opens config.json, then reloads)
+NOUI
+        exit 1 ;;
+    revert)
+        bak="$CONFIG.bak"
+        [[ -f $bak ]] || { echo "no backup at $bak" >&2; exit 1; }
+        cp "$CONFIG" "$CONFIG.undo" && mv "$bak" "$CONFIG"
+        "$0" reload && echo "reverted (previous config saved to $CONFIG.undo)" ;;
+    *)
+        [[ -n ${1-} ]] && echo "mouse: unknown command '$1'" >&2
+        usage ;;
+esac
