@@ -63,9 +63,15 @@ if [[ -f "$HOME/Library/LaunchAgents/$OLD_LABEL.plist" ]]; then
     echo "migrated service $OLD_LABEL -> $LABEL"
 fi
 
+# Remember where the log ends, so the checks below read only what this run
+# appends. Grepping the whole file reports failures from previous runs
+# forever, long after the permission has been granted.
+LOG_MARK=$(wc -c < "$LOG" 2>/dev/null || echo 0)
+
 launchctl bootout "$TARGET" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-sleep 1
+sleep 2
+THIS_RUN=$(tail -c "+$((LOG_MARK + 1))" "$LOG" 2>/dev/null || true)
 
 echo
 echo "Installed:"
@@ -80,20 +86,23 @@ if ! grep -q "$BIN" <<<"$PATH"; then
     echo "      export PATH=\"\$HOME/.local/bin:\$PATH\""
     echo
 fi
-if grep -q "could not create an event tap" "$LOG" 2>/dev/null; then
-    cat <<'PERM'
+if grep -q "event tap active" <<<"$THIS_RUN"; then
+    echo "Event tap is ACTIVE — the remapper is working."
+elif grep -q "no event tap yet" <<<"$THIS_RUN"; then
+    cat <<PERM
 >>> ACCESSIBILITY PERMISSION NEEDED <<<
     System Settings > Privacy & Security > Accessibility
-    Add and enable:  ~/.local/bin/m720d
-    (Cmd-Shift-G in the file picker to type the path.)
-    Then:  mouse restart
+    Add and enable:  $BIN/m720d
 
-    Note: macOS ties this grant to the exact binary. Re-running install.sh
-    recompiles m720d, so after an update you may have to remove the entry
-    and add it again before the tap works.
+    m720d is running and re-checking every 3 seconds, so it will start
+    working on its own once you grant it. No restart needed.
+
+    If m720d is ALREADY listed and enabled: this install recompiled it, and
+    macOS keys the grant to the exact binary. Toggle it off and on, or
+    remove it with the minus button and add it again.
 PERM
 else
-    echo "Run 'mouse status' to check it, and 'mouse logs' if anything looks off."
+    echo "Started, but it logged nothing yet. Check with: mouse status"
 fi
 
 echo

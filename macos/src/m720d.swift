@@ -218,26 +218,45 @@ let mask: CGEventMask =
     (1 << CGEventType.keyDown.rawValue)        |
     (1 << CGEventType.keyUp.rawValue)
 
-guard let tap = CGEvent.tapCreate(tap: .cghidEventTap,
-                                  place: .headInsertEventTap,
-                                  options: .defaultTap,      // must modify, not just listen
-                                  eventsOfInterest: mask,
-                                  callback: callback,
-                                  userInfo: nil) else {
-    FileHandle.standardError.write("""
-    m720d: could not create an event tap.
+log("started (config \(CONFIG_PATH.path))")
 
-    Grant Accessibility permission to m720d:
-      System Settings > Privacy & Security > Accessibility
-
-    """.data(using: .utf8)!)
-    exit(1)
+// Creating the tap fails until Accessibility permission is granted. Do NOT
+// exit in that case: launchd has KeepAlive set, so exiting would respawn us
+// every few seconds forever. Retry instead, and start working the moment the
+// user grants it — no restart needed.
+func makeTap() -> CFMachPort? {
+    CGEvent.tapCreate(tap: .cghidEventTap,
+                      place: .headInsertEventTap,
+                      options: .defaultTap,      // must modify, not just listen
+                      eventsOfInterest: mask,
+                      callback: callback,
+                      userInfo: nil)
 }
-globalTap = tap
 
-let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
-CGEvent.tapEnable(tap: tap, enable: true)
+func activate(_ tap: CFMachPort) {
+    globalTap = tap
+    defer { log("event tap active") }
+    let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+    CGEvent.tapEnable(tap: tap, enable: true)
+}
+
+if let tap = makeTap() {
+    activate(tap)
+} else {
+    log("no event tap yet — Accessibility permission is missing")
+    log("grant it to \(CommandLine.arguments[0]) — this will pick it up automatically")
+    let retry = DispatchSource.makeTimerSource(queue: .main)
+    retry.schedule(deadline: .now() + 3, repeating: 3)
+    retry.setEventHandler {
+        if let tap = makeTap() {
+            retry.cancel()
+            activate(tap)
+            log("Accessibility granted — tap active")
+        }
+    }
+    retry.resume()
+}
 
 // SIGHUP reloads the config, so applying a change never drops the tap.
 signal(SIGHUP, SIG_IGN)
@@ -245,5 +264,4 @@ let hup = DispatchSource.makeSignalSource(signal: SIGHUP, queue: .main)
 hup.setEventHandler { log("SIGHUP — reloading config"); loadConfig() }
 hup.resume()
 
-log("running (tap active, config \(CONFIG_PATH.path))")
 CFRunLoopRun()
