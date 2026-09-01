@@ -106,8 +106,19 @@ func handler(proxy: CGEventTapProxy, type: CGEventType,
         let m = mods.isEmpty ? "" : mods.joined(separator: "+") + "+"
         let named = m + (KEYNAME[code] ?? "keycode \(code)")
         let what = WELLKNOWN[named].map { " = \($0)" } ?? ""
-        print("KEY     \(named)\(what)   <-- arrives as a keystroke, not a raw button")
-        note("keystroke \(named)\(what) — reaches macOS, remappable with a caveat")
+
+        // The gesture button sends Ctrl+Up, which is byte-identical to the
+        // same chord typed on a keyboard. If these source fields differ
+        // between the mouse and a real keyboard, a daemon can tell them
+        // apart and remap the button without hijacking the keystroke.
+        let kbType = event.getIntegerValueField(.keyboardEventKeyboardType)
+        let srcPid = event.getIntegerValueField(.eventSourceUnixProcessID)
+        let srcState = event.getIntegerValueField(.eventSourceStateID)
+        let fingerprint = "kbType=\(kbType) srcState=\(srcState) srcPid=\(srcPid)"
+
+        print("KEY     \(named)\(what)")
+        print("        \(fingerprint)")
+        note("keystroke \(named)\(what)  [\(fingerprint)]")
 
     default:
         break
