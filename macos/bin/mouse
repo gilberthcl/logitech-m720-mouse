@@ -2,7 +2,7 @@
 # mouse — control and configure the M720 remapper on macOS.
 set -euo pipefail
 
-LABEL=local.m720d
+LABEL=local.mouse
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 CONFIG="$HOME/.config/m720-config/config.json"
 LOG="$HOME/Library/Logs/m720d.log"
@@ -13,14 +13,18 @@ usage() {
     cat >&2 <<'USAGE'
 Usage: mouse <command>
 
-  start | stop | restart      control the remapper
-  status                      show whether it is running
+  start                       start the service
+  stop                        stop it
+  status                      is it running
+  log [N]                     last N log lines (default 50)
+
+Also available:
+  restart                     stop and start
   reload                      re-read the config without dropping the tap
-  modify                      open the configuration UI in a browser
-  logs [N]                    last N log lines (default 50)
   follow                      tail the log live
-  edit                        edit config.json by hand, then reload
+  edit                        edit config.json, then reload
   revert                      restore the previous configuration
+  modify                      configuration UI (Linux only for now)
 USAGE
     exit 1
 }
@@ -45,7 +49,7 @@ case "${1-}" in
             echo "  try: mouse start   then: mouse logs"
             exit 3
         fi ;;
-    logs)    tail -n "${2:-50}" "$LOG" 2>/dev/null || echo "no log at $LOG" ;;
+    log|logs) tail -n "${2:-50}" "$LOG" 2>/dev/null || echo "no log at $LOG" ;;
     follow)  tail -f "$LOG" ;;
     edit)    "${EDITOR:-nano}" "$CONFIG" && "$0" reload ;;
     modify)

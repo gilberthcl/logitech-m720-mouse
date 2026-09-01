@@ -122,6 +122,10 @@ it. Then grant Accessibility permission — **System Settings > Privacy &
 Security > Accessibility**, add `~/.local/bin/m720d` (Cmd-Shift-G to type the
 path) — and run `mouse restart`.
 
+macOS ties that grant to the exact binary, and `install.sh` recompiles it, so
+**install before you grant**. After a later update the tap may stop working
+until you remove the Accessibility entry and add it back.
+
 Everything lands under your home directory:
 
 ```
@@ -134,13 +138,17 @@ Everything lands under your home directory:
 
 ## Use
 
+The LaunchAgent is labelled `local.mouse`, so `launchctl` lists it as `mouse`.
+
 | Command | Effect |
 |---|---|
+| `mouse start` / `mouse stop` | control the service |
 | `mouse status` | is it running |
+| `mouse log [N]` | last N log lines |
 | `mouse edit` | edit config.json, then reload |
 | `mouse reload` | re-read the config without dropping the tap |
 | `mouse restart` | full restart |
-| `mouse logs [N]` / `mouse follow` | log |
+| `mouse follow` | tail the log live |
 | `mouse revert` | restore the previous config |
 
 ## Configuration

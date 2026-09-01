@@ -10,11 +10,15 @@ usage() {
     cat >&2 <<'USAGE'
 Usage: mouse <command>
 
-  start | stop | restart      control the service
+  start                       start the service
+  stop                        stop it
   status                      show service state
+  log [N]                     last N journal lines (default 50)
+
+Also available:
+  restart                     stop and start
   enable | disable            start at boot, or not
   modify                      open the button configuration UI in a browser
-  logs [N]                    last N journal lines (default 50)
   follow                      tail the journal live
   edit                        edit /etc/logid.cfg by hand, then restart
   revert                      roll back to the previous configuration
@@ -29,7 +33,7 @@ case "${1-}" in
     status)
         systemctl status "$SERVICE" --no-pager
         ;;
-    logs)
+    log|logs)
         journalctl -u "$SERVICE" -n "${2:-50}" --no-pager
         ;;
     follow)

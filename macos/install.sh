@@ -8,7 +8,8 @@ BIN="$HOME/.local/bin"
 LIB="$HOME/.local/lib/m720-config"
 CFG_DIR="$HOME/.config/m720-config"
 CONFIG="$CFG_DIR/config.json"
-LABEL=local.m720d
+LABEL=local.mouse
+OLD_LABEL=local.m720d
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 LOG="$HOME/Library/Logs/m720d.log"
 TARGET="gui/$(id -u)/$LABEL"
@@ -55,6 +56,13 @@ cat > "$PLIST" <<PLIST_EOF
 </plist>
 PLIST_EOF
 
+# Migrate from the old label so the service is simply "mouse".
+if [[ -f "$HOME/Library/LaunchAgents/$OLD_LABEL.plist" ]]; then
+    launchctl bootout "gui/$(id -u)/$OLD_LABEL" 2>/dev/null || true
+    rm -f "$HOME/Library/LaunchAgents/$OLD_LABEL.plist"
+    echo "migrated service $OLD_LABEL -> $LABEL"
+fi
+
 launchctl bootout "$TARGET" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 sleep 1
@@ -62,7 +70,7 @@ sleep 1
 echo
 echo "Installed:"
 echo "  $BIN/m720d          the remapper"
-echo "  $BIN/mouse          control it: start/stop/status/reload/logs/edit"
+echo "  $BIN/mouse          control it: start / stop / status / log"
 echo "  $PLIST"
 echo "  $CONFIG"
 echo "  $LOG"
@@ -79,6 +87,10 @@ if grep -q "could not create an event tap" "$LOG" 2>/dev/null; then
     Add and enable:  ~/.local/bin/m720d
     (Cmd-Shift-G in the file picker to type the path.)
     Then:  mouse restart
+
+    Note: macOS ties this grant to the exact binary. Re-running install.sh
+    recompiles m720d, so after an update you may have to remove the entry
+    and add it again before the tap works.
 PERM
 else
     echo "Run 'mouse status' to check it, and 'mouse logs' if anything looks off."
