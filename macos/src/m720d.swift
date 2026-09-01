@@ -36,6 +36,8 @@ struct Config: Codable {
     // whose keyboardType differs are a real keyboard and are never touched.
     var gestureKeyboardType: Int = 40
     var gestureEnabled: Bool = true
+    // Log every control the tap sees and what was done with it.
+    var debug: Bool = true
 }
 
 let CONFIG_PATH = FileManager.default.homeDirectoryForCurrentUser
@@ -124,12 +126,20 @@ var globalTap: CFMachPort?
 /// Decide what to do with a control. Returns true if the original event
 /// should be swallowed.
 func handleControl(_ name: String) -> Bool {
-    guard let action = config.buttons[name] else { return false }
+    guard let action = config.buttons[name] else {
+        if config.debug { log("  \(name): not in config — passing through") }
+        return false
+    }
     switch action.type {
     case "none":
+        if config.debug { log("  \(name): disabled — swallowed") }
         return true                       // disabled: swallow, emit nothing
     case "keystroke":
-        guard let keys = action.keys, !keys.isEmpty else { return false }
+        guard let keys = action.keys, !keys.isEmpty else {
+            if config.debug { log("  \(name): keystroke with no keys — passing through") }
+            return false
+        }
+        if config.debug { log("  \(name): sending \(keys.joined(separator: "+")) — swallowed") }
         // Post asynchronously: a tap callback must return promptly or macOS
         // disables it for timing out. The small delay also lets the gesture
         // button's own Ctrl (a flagsChanged event we do not intercept) be
@@ -137,7 +147,8 @@ func handleControl(_ name: String) -> Bool {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { postKeystroke(keys) }
         return true
     default:
-        return false                      // "default": pass through untouched
+        if config.debug { log("  \(name): default — passing through untouched") }
+        return false
     }
 }
 
@@ -154,8 +165,10 @@ func callback(proxy: CGEventTapProxy, type: CGEventType,
     switch type {
     case .otherMouseDown:
         let b = Int(event.getIntegerValueField(.mouseEventButtonNumber))
+        if config.debug { log("saw mouse button \(b)") }
         let name: String? = (2...4).contains(b) ? BUTTON_NAMES[b - 2] : nil
         if let name, handleControl(name) { return nil }
+        if config.debug && name == nil { log("  button \(b) is outside 2-4 — not remappable") }
 
     case .otherMouseUp:
         // Swallow the matching up-event for anything we swallowed on down,
@@ -169,6 +182,7 @@ func callback(proxy: CGEventTapProxy, type: CGEventType,
         let dy = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
 
         if dx != 0 {
+            if config.debug { log("saw wheel tilt dx=\(dx)") }
             if handleControl(dx > 0 ? "tiltLeft" : "tiltRight") { return nil }
         } else if dy != 0 && config.scroll.enabled {
             let sign: Int64 = config.scroll.invert ? -1 : 1
@@ -193,6 +207,7 @@ func callback(proxy: CGEventTapProxy, type: CGEventType,
         guard code == 126,                                   // Up arrow
               event.flags.contains(.maskControl),
               kbType == Int64(config.gestureKeyboardType) else { break }
+        if config.debug && type == .keyDown { log("saw gesture button (Ctrl+Up, kbType \(kbType))") }
         if type == .keyUp {
             if let a = config.buttons["gesture"],
                a.type == "none" || a.type == "keystroke" { return nil }
