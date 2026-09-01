@@ -11,46 +11,73 @@ if [[ -z ${pid:-} || $pid == 0 ]]; then
     echo "Not active. Nothing is blocking keystroke injection right now."
 else
     echo "ACTIVE — held by PID $pid:"
-    ps -p "$pid" -o pid=,comm= 2>/dev/null || echo "  (process is gone; stale entry)"
-    echo "Quitting that app should release it."
+    ps -p "$pid" -o pid=,comm= 2>/dev/null || echo "  (process gone; stale entry)"
 fi
 
 echo
 echo "=============================================="
-echo " 2. Logitech HID interfaces"
+echo " 2. Logitech software running"
 echo "=============================================="
-# PrimaryUsagePage 1 / Usage 2 = a generic mouse.
-# PrimaryUsagePage 65280 (0xFF00) = the vendor-specific HID++ collection —
-# if that shows up, talking HID++ from userland may be possible, which is what
-# it would take to reach the gesture button and tilts.
-ioreg -c IOHIDDevice -r -l -w 0 2>/dev/null \
-| awk '
-  /^ *\+\-o /                { node=$0 }
-  /"Product" =/              { prod=$0; show=1 }
-  /"VendorID" =/             { vid=$0 }
-  /"ProductID" =/            { pid=$0 }
-  /"PrimaryUsagePage" =/     { pup=$0 }
-  /"PrimaryUsage" =/         { pu=$0
-                               if (show && (prod ~ /M720|Logi|Triathlon/ || vid ~ /1133/)) {
-                                 gsub(/^ +/,"",prod); gsub(/^ +/,"",vid); gsub(/^ +/,"",pid)
-                                 gsub(/^ +/,"",pup);  gsub(/^ +/,"",pu)
-                                 print "  " prod; print "    " vid "  " pid
-                                 print "    " pup "  " pu; print ""
-                               }
-                               show=0 }
-'
-echo "(VendorID 1133 = 0x046D = Logitech. If nothing printed, the mouse is"
-echo " paired over Bluetooth and may appear only under IOBluetoothDevice.)"
-
-echo
-echo "=============================================="
-echo " 3. Toolchain"
-echo "=============================================="
-if xcode-select -p >/dev/null 2>&1; then
-    echo "Xcode command line tools: $(xcode-select -p)"
-    swiftc --version 2>/dev/null | head -1 || echo "swiftc: NOT available"
+# Deliberately narrow: a bare 'logi' also matches macOS's own logind,
+# loginwindow, login and LoginUserService, which drowns out the real answer.
+if pgrep -il 'logioptions|logiplugin|logirightsight|logibolt|logimgr|logitune' 2>/dev/null; then
+    echo
+    echo ">>> QUIT LOGI OPTIONS+ BEFORE RUNNING PROBE 2. <<<"
+    echo "    While it runs it intercepts the buttons and probe 2 measures"
+    echo "    Options+, not the mouse."
 else
-    echo "Xcode command line tools: NOT installed"
-    echo "  (would need: xcode-select --install)"
+    echo "None. Good — probe 2 will see the raw mouse."
 fi
+
+echo
+echo "=============================================="
+echo " 3. Logitech HID interfaces"
+echo "=============================================="
+ioreg -a -c IOHIDDevice -r -l 2>/dev/null | python3 -c '
+import sys, plistlib
+
+USAGE = {
+    (1, 1): "Pointer", (1, 2): "Mouse", (1, 6): "Keyboard",
+    (1, 7): "Keypad", (12, 1): "Consumer Control",
+}
+
+def walk(nodes):
+    for n in nodes:
+        if not isinstance(n, dict):
+            continue
+        yield n
+        yield from walk(n.get("IORegistryEntryChildren", []))
+
+try:
+    data = plistlib.loads(sys.stdin.buffer.read())
+except Exception as exc:
+    print("  could not parse ioreg output:", exc)
+    raise SystemExit
+
+rows = []
+for d in walk(data if isinstance(data, list) else [data]):
+    if d.get("VendorID") != 1133:      # 0x046D Logitech
+        continue
+    up, u = d.get("PrimaryUsagePage"), d.get("PrimaryUsage")
+    rows.append((d.get("Product", "?"), d.get("ProductID"), up, u,
+                 d.get("Transport", "?")))
+
+if not rows:
+    print("  no Logitech HID devices found")
+for r in sorted(set(rows)):
+    prod, pid, up, u, tr = r
+    kind = USAGE.get((up, u), "vendor-specific" if (up or 0) >= 0xFF00 else "other")
+    star = "   <-- HID++ vendor collection" if (up or 0) >= 0xFF00 else ""
+    print(f"  {prod:<22} pid=0x{pid:04x}  usagePage={up} usage={u}  ({kind})  {tr}{star}")
+'
+echo
+echo "  A vendor-specific collection (usagePage >= 65280 / 0xFF00) is the HID++"
+echo "  endpoint. Without it the gesture button and tilts cannot be diverted."
+
+echo
+echo "=============================================="
+echo " 4. Toolchain"
+echo "=============================================="
+xcode-select -p 2>/dev/null || echo "Xcode CLT: NOT installed"
+swiftc --version 2>/dev/null | head -1 || echo "swiftc: NOT available"
 python3 --version 2>/dev/null || echo "python3: NOT available"

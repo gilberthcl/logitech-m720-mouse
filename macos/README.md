@@ -11,12 +11,22 @@ Run the probes, paste the output back.
 ```bash
 cd ~/m720-config/macos
 ./probe-1-hid.sh              # read-only, no permissions, installs nothing
+# --- quit Logi Options+ from its menu bar icon before the next one ---
 swift probe-2-events.swift    # needs Accessibility on your terminal (a toggle)
 ```
+
+**Quit Logi Options+ first.** While it runs it grabs the buttons ahead of the
+probe, so the results describe Options+ rather than the mouse. Probe 1 lists
+what is running; probe 2 warns and keeps going if it finds anything.
 
 Probe 2 only listens — it never swallows or alters an event, so the mouse
 behaves normally while it runs. You can revoke the Accessibility toggle
 afterwards.
+
+It also prints keyboard **key codes** (numbers only, never characters), because
+a button already remapped to a keystroke arrives as a keyboard event and would
+otherwise look identical to a dead button. Nothing is stored or sent. Still:
+don't type passwords while it runs.
 
 ## What each answers
 
@@ -24,10 +34,18 @@ afterwards.
 the M720 expose a vendor-specific HID collection (usage page `0xFF00`) alongside
 the ordinary mouse one; is the Swift toolchain present.
 
-**Probe 2** — which of the six controls actually produce events macOS can see.
-This is the decisive one. Expect middle click, back and forward to appear as
-`button 2/3/4`. The wheel tilts most likely appear as *horizontal scroll*
-(`dx`), not buttons. The gesture button may well produce nothing at all.
+**Probe 2** — which of the six controls actually produce events macOS can see,
+and in what form. This is the decisive one. Each press prints one of:
+
+| Output | Meaning |
+|---|---|
+| `BUTTON n` | raw button, remappable |
+| `SCROLL horizontal` | wheel tilt, remappable |
+| `KEY … keycode n` | something already remapped it — quit that software and re-run |
+| nothing | invisible to macOS, needs a driver |
+
+Expect middle click, back and forward as `button 2/3/4`, and the tilts as
+horizontal scroll rather than buttons. The gesture button is the open question.
 
 ## What the answers mean
 
