@@ -48,6 +48,10 @@ case "${1-}" in
             if [[ -f $LOG ]]; then
                 start=$(awk '/started \(config/ {n=NR} END {print n+0}' "$LOG")
                 recent=$(tail -n "+$((start > 0 ? start : 1))" "$LOG")
+                if grep -q "CONFIG ERROR" <<<"$recent"; then
+                    echo "  config:    BROKEN — nothing is being remapped"
+                    grep "CONFIG ERROR" <<<"$recent" | tail -2 | sed 's/^/    /'
+                fi
                 if grep -q "event tap active" <<<"$recent"; then
                     echo "  event tap: ACTIVE"
                 elif grep -q "no event tap yet" <<<"$recent"; then

@@ -18,15 +18,37 @@ import CoreGraphics
 
 // ---------------------------------------------------------------- config
 
+// Swift's synthesised Decodable IGNORES default values: a key missing from
+// the JSON throws keyNotFound rather than falling back. That means adding any
+// field to these structs silently breaks every existing config file. Decode
+// every field with decodeIfPresent so old and new configs both load.
+
 struct Action: Codable {
     var type: String = "default"     // default | none | keystroke
     var keys: [String]?              // e.g. ["cmd","c"]
+
+    init() {}
+    enum CodingKeys: String, CodingKey { case type, keys }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        type = try c.decodeIfPresent(String.self, forKey: .type) ?? "default"
+        keys = try c.decodeIfPresent([String].self, forKey: .keys)
+    }
 }
 
 struct ScrollConfig: Codable {
     var enabled: Bool = false
     var multiplier: Int = 3
     var invert: Bool = false
+
+    init() {}
+    enum CodingKeys: String, CodingKey { case enabled, multiplier, invert }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+        multiplier = try c.decodeIfPresent(Int.self, forKey: .multiplier) ?? 3
+        invert = try c.decodeIfPresent(Bool.self, forKey: .invert) ?? false
+    }
 }
 
 struct Config: Codable {
@@ -38,6 +60,29 @@ struct Config: Codable {
     var gestureEnabled: Bool = true
     // Log every control the tap sees and what was done with it.
     var debug: Bool = true
+    // How modifiers are sent: "flags" sets them on the key event (works
+    // almost everywhere); "keys" also presses the physical modifier keys,
+    // which some apps require. Switchable without recompiling.
+    var postStyle: String = "flags"
+    // Milliseconds to wait before sending a replacement keystroke, so the
+    // originating button's own modifiers have been released first.
+    var postDelayMs: Int = 20
+
+    init() {}
+    enum CodingKeys: String, CodingKey {
+        case buttons, scroll, gestureKeyboardType, gestureEnabled, debug,
+             postStyle, postDelayMs
+    }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        buttons = try c.decodeIfPresent([String: Action].self, forKey: .buttons) ?? [:]
+        scroll = try c.decodeIfPresent(ScrollConfig.self, forKey: .scroll) ?? ScrollConfig()
+        gestureKeyboardType = try c.decodeIfPresent(Int.self, forKey: .gestureKeyboardType) ?? 40
+        gestureEnabled = try c.decodeIfPresent(Bool.self, forKey: .gestureEnabled) ?? true
+        debug = try c.decodeIfPresent(Bool.self, forKey: .debug) ?? true
+        postStyle = try c.decodeIfPresent(String.self, forKey: .postStyle) ?? "flags"
+        postDelayMs = try c.decodeIfPresent(Int.self, forKey: .postDelayMs) ?? 20
+    }
 }
 
 let CONFIG_PATH = FileManager.default.homeDirectoryForCurrentUser
@@ -56,7 +101,8 @@ func loadConfig() {
         log("config loaded: \(config.buttons.count) button(s), scroll " +
             (config.scroll.enabled ? "x\(config.scroll.multiplier)" : "off"))
     } catch {
-        log("config is malformed, keeping previous: \(error)")
+        log("CONFIG ERROR — nothing will be remapped: \(error)")
+        log("CONFIG ERROR — check \(CONFIG_PATH.path)")
     }
 }
 
@@ -82,6 +128,11 @@ let KEYCODE: [String: CGKeyCode] = [
     "left":123,"right":124,"down":125,"up":126,
 ]
 
+let MODCODE: [String: CGKeyCode] = [
+    "cmd": 55, "command": 55, "shift": 56, "opt": 58, "option": 58,
+    "alt": 58, "ctrl": 59, "control": 59, "fn": 63,
+]
+
 let MODIFIER: [String: CGEventFlags] = [
     "cmd": .maskCommand, "command": .maskCommand,
     "opt": .maskAlternate, "option": .maskAlternate, "alt": .maskAlternate,
@@ -92,29 +143,39 @@ let MODIFIER: [String: CGEventFlags] = [
 let eventSource = CGEventSource(stateID: .hidSystemState)
 let BUTTON_NAMES = ["button2", "button3", "button4"]
 
-/// Post one chord: modifiers as flags, the remaining keys pressed in order.
+func post(_ code: CGKeyCode, _ down: Bool, _ flags: CGEventFlags) {
+    if let e = CGEvent(keyboardEventSource: eventSource, virtualKey: code, keyDown: down) {
+        e.flags = flags
+        e.post(tap: .cghidEventTap)
+    }
+}
+
+/// Post one chord. Two styles, selectable in config without recompiling:
+///   "flags" — modifiers ride on the key event. Correct for most apps.
+///   "keys"  — the modifier keys are physically pressed around it as well,
+///             which a few apps insist on before they honour the chord.
 func postKeystroke(_ keys: [String]) {
     var flags: CGEventFlags = []
+    var mods: [CGKeyCode] = []
     var codes: [CGKeyCode] = []
     for raw in keys {
         let k = raw.lowercased()
-        if let m = MODIFIER[k] { flags.insert(m) }
-        else if let c = KEYCODE[k] { codes.append(c) }
-        else { log("unknown key name \"\(raw)\" — ignored") }
+        if let m = MODIFIER[k] {
+            flags.insert(m)
+            if let mc = MODCODE[k] { mods.append(mc) }
+        } else if let c = KEYCODE[k] {
+            codes.append(c)
+        } else {
+            log("unknown key name \"\(raw)\" — ignored")
+        }
     }
     guard !codes.isEmpty else { return }
-    for c in codes {
-        if let e = CGEvent(keyboardEventSource: eventSource, virtualKey: c, keyDown: true) {
-            e.flags = flags
-            e.post(tap: .cghidEventTap)
-        }
-    }
-    for c in codes.reversed() {
-        if let e = CGEvent(keyboardEventSource: eventSource, virtualKey: c, keyDown: false) {
-            e.flags = flags
-            e.post(tap: .cghidEventTap)
-        }
-    }
+
+    let useKeys = config.postStyle == "keys"
+    if useKeys { for m in mods { post(m, true, flags) } }
+    for c in codes { post(c, true, flags) }
+    for c in codes.reversed() { post(c, false, flags) }
+    if useKeys { for m in mods.reversed() { post(m, false, []) } }
 }
 
 // ------------------------------------------------------------------ tap
@@ -144,7 +205,8 @@ func handleControl(_ name: String) -> Bool {
         // disables it for timing out. The small delay also lets the gesture
         // button's own Ctrl (a flagsChanged event we do not intercept) be
         // released first, so it cannot merge into the chord we send.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { postKeystroke(keys) }
+        let delay = Double(max(0, config.postDelayMs)) / 1000.0
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { postKeystroke(keys) }
         return true
     default:
         if config.debug { log("  \(name): default — passing through untouched") }
