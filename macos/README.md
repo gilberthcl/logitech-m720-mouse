@@ -107,9 +107,21 @@ event tap. No driver, no system extension, no root.
 The gesture button is the interesting one. It is byte-identical to Ctrl+Up
 typed on a keyboard except for the event's `keyboardType`: this mouse reports
 **40**, the keyboard reports **41**. The daemon keys on that, so remapping the
-gesture button does not hijack Ctrl+Up on your keyboard. If a future keyboard
-also reports 40, re-run `probe-2-events.swift` and set `gestureKeyboardType`
-in the config to match.
+gesture button does not hijack Ctrl+Up on your keyboard.
+
+**That value is not stable.** Over Bluetooth LE the mouse reconnects after the
+machine sleeps, and macOS can assign its keyboard collection a different
+keyboardType. The symptom is the thumb button silently reverting to Mission
+Control. `gestureKeyboardTypes` is therefore a list, and any unrecognised
+Ctrl+Up is logged once with its number — regardless of the `debug` setting —
+so recovery is:
+
+```bash
+mouse log 20      # find: Ctrl+Up seen from keyboardType N
+```
+
+then add N to `gestureKeyboardTypes` in the config. It applies on save; no
+restart and no re-granting.
 
 ## Install
 

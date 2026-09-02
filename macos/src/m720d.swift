@@ -58,7 +58,11 @@ struct Config: Codable {
     var scroll = ScrollConfig()
     // keyboardType reported by the mouse's own keyboard collection. Events
     // whose keyboardType differs are a real keyboard and are never touched.
-    var gestureKeyboardType: Int = 40
+    // keyboardType values that identify the mouse's own keyboard collection.
+    // A Bluetooth LE reconnect (after sleep) can change it, so this is a list:
+    // add the new number when the log reports one rather than rebuilding.
+    var gestureKeyboardTypes: [Int] = [40]
+    var gestureKeyboardType: Int = 40      // legacy single value, merged in
     var gestureEnabled: Bool = true
     // Log every control the tap sees and what was done with it.
     var debug: Bool = true
@@ -72,14 +76,17 @@ struct Config: Codable {
 
     init() {}
     enum CodingKeys: String, CodingKey {
-        case buttons, scroll, gestureKeyboardType, gestureEnabled, debug,
-             postStyle, postDelayMs
+        case buttons, scroll, gestureKeyboardTypes, gestureKeyboardType,
+             gestureEnabled, debug, postStyle, postDelayMs
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         buttons = try c.decodeIfPresent([String: Action].self, forKey: .buttons) ?? [:]
         scroll = try c.decodeIfPresent(ScrollConfig.self, forKey: .scroll) ?? ScrollConfig()
         gestureKeyboardType = try c.decodeIfPresent(Int.self, forKey: .gestureKeyboardType) ?? 40
+        var types = try c.decodeIfPresent([Int].self, forKey: .gestureKeyboardTypes) ?? [40]
+        if !types.contains(gestureKeyboardType) { types.append(gestureKeyboardType) }
+        gestureKeyboardTypes = types
         gestureEnabled = try c.decodeIfPresent(Bool.self, forKey: .gestureEnabled) ?? true
         debug = try c.decodeIfPresent(Bool.self, forKey: .debug) ?? true
         postStyle = try c.decodeIfPresent(String.self, forKey: .postStyle) ?? "flags"
@@ -92,6 +99,8 @@ let CONFIG_PATH = FileManager.default.homeDirectoryForCurrentUser
 
 var config = Config()
 var configWatcher: DispatchSourceFileSystemObject?
+// keyboardTypes already reported as unrecognised, so we warn once each.
+var warnedKeyboardTypes = Set<Int>()
 
 func loadConfig() {
     guard let data = try? Data(contentsOf: CONFIG_PATH) else {
@@ -101,6 +110,7 @@ func loadConfig() {
     }
     do {
         config = try JSONDecoder().decode(Config.self, from: data)
+        warnedKeyboardTypes.removeAll()
         log("config loaded: \(config.buttons.count) button(s), scroll " +
             (config.scroll.enabled ? "x\(config.scroll.multiplier)" : "off"))
     } catch {
@@ -307,9 +317,20 @@ func callback(proxy: CGEventTapProxy, type: CGEventType,
         guard config.gestureEnabled else { break }
         let code = event.getIntegerValueField(.keyboardEventKeycode)
         let kbType = event.getIntegerValueField(.keyboardEventKeyboardType)
-        guard code == 126,                                   // Up arrow
-              event.flags.contains(.maskControl),
-              kbType == Int64(config.gestureKeyboardType) else { break }
+        guard code == 126, event.flags.contains(.maskControl) else { break }
+        guard config.gestureKeyboardTypes.contains(Int(kbType)) else {
+            // Not a keyboardType we know as the mouse. Say so once per value,
+            // regardless of the debug setting: after a Bluetooth reconnect this
+            // is the single most likely reason the gesture button "stopped
+            // working", and the fix is to add this number to the config.
+            if warnedKeyboardTypes.insert(Int(kbType)).inserted && type == .keyDown {
+                log("Ctrl+Up seen from keyboardType \(kbType), which is not in " +
+                    "gestureKeyboardTypes \(config.gestureKeyboardTypes).")
+                log("  If that was the mouse's thumb button, add \(kbType) to " +
+                    "gestureKeyboardTypes in \(CONFIG_PATH.path)")
+            }
+            break
+        }
         if config.debug && type == .keyDown { log("saw gesture button (Ctrl+Up, kbType \(kbType))") }
         if type == .keyUp {
             if let a = config.buttons["gesture"],
