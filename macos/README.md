@@ -215,9 +215,22 @@ escape sequence for exactly that chord. Applications act on it. The
 WindowServer does not.
 
 Space switching is driven from real hardware events; synthesised ones are
-ignored for that purpose no matter how they are posted. This is why other
-userland remappers reach for private APIs or a driver to do it. Nothing in
-this tool's design can get around it, and no config change helps.
+ignored no matter how they are posted. Four independent routes were tried on
+real hardware:
+
+| Route | Result |
+|---|---|
+| m720d posting CGEvents to the HID tap | keystroke delivered, no switch |
+| `osascript` via System Events | keystroke delivered, no switch |
+| Hammerspoon `hs.eventtap.keyStroke` | keystroke delivered, no switch |
+| Hammerspoon `hs.spaces.gotoSpace` | returns true, flashes Mission Control, lands back on the original space |
+
+The first three were confirmed delivered by a terminal printing the matching
+escape sequence each time. `gotoSpace` is implemented by driving the Mission
+Control UI, which is why it flickers; on a three-monitor setup whose main
+screen holds two spaces (one a fullscreen app) it does not complete.
+
+Nothing in this tool's design can get around it, and no config change helps.
 
 Mission Control via the `run` action is the practical substitute: it opens
 reliably from any app, and you pick the space from there.
